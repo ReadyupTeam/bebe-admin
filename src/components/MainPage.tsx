@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { InquiryItem } from '../\btypes';
 
-function LoginModal({ onLogin, error }: { onLogin: (id: string, pw: string) => void, error: string | null }) {
-  const [id, setId] = useState('');
-  const [pw, setPw] = useState('');
+function LoginModal({ onLogin, error }: { onLogin: (email: string, provider: string) => void, error: string | null }) {
+  const [email, setEmail] = useState('');
+  const [provider, setProvider] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(id, pw);
+    onLogin(email, provider);
   };
 
   return (
@@ -27,29 +27,29 @@ function LoginModal({ onLogin, error }: { onLogin: (id: string, pw: string) => v
         backgroundColor: 'white',
         padding: '20px',
         borderRadius: '5px',
-        width: '300px' // 폼의 너비를 고정
+        width: '300px'
       }}>
         {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '80px 1fr', // 레이블과 입력 필드의 너비 비율
+          gridTemplateColumns: '80px 1fr',
           gap: '10px',
           alignItems: 'center'
         }}>
-          <label htmlFor="id">ID:</label>
+          <label htmlFor="email">Email:</label>
           <input
-            id="id"
+            id="email"
             type="text"
-            value={id}
-            onChange={e => setId(e.target.value)}
+            value={email}
+            onChange={e => setEmail(e.target.value)}
             style={{ width: '100%' }}
           />
-          <label htmlFor="password">Password:</label>
+          <label htmlFor="provider">Provider:</label>
           <input
-            id="password"
-            type="password"
-            value={pw}
-            onChange={e => setPw(e.target.value)}
+            id="provider"
+            type="text"
+            value={provider}
+            onChange={e => setProvider(e.target.value)}
             style={{ width: '100%' }}
           />
         </div>
@@ -63,65 +63,86 @@ function LoginModal({ onLogin, error }: { onLogin: (id: string, pw: string) => v
 
 function MainPage() {
   const [items, setItems] = useState<InquiryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
-    const sessionId = sessionStorage.getItem('sessionId');
-    const sessionPw = sessionStorage.getItem('sessionPw');
-    if (sessionId && sessionPw) {
-      fetchData(sessionId, sessionPw);
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken) {
+      fetchData(accessToken);
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
-  const fetchData = (id: string, pw: string) => {
+  const login = async (email: string, provider: string) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/adminsign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, provider }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const { accessToken } = await response.json();
+      localStorage.setItem('accessToken', accessToken);
+      setIsLoggedIn(true);
+      fetchData(accessToken);
+    } catch (error) {
+      console.error('Login error:', error);
+      setLoginError('Login failed. Please try again.');
+    }
+  };
+
+  const fetchData = async (accessToken: string) => {
     setIsLoading(true);
     setLoginError(null);
-    fetch(`http://localhost:3000/api/inquiry/admin?id=${id}&pw=${pw}`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Login failed`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-          setItems(data);
-          setIsLoggedIn(true);
-          // 로그인 성공 시 세션에 저장
-          sessionStorage.setItem('sessionId', id);
-          sessionStorage.setItem('sessionPw', pw);
-        } else {
-          throw new Error('Received data is not an array');
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching data:', error);
-        setLoginError(error.message);
-        // 로그인 실패 시 세션 정보 삭제
-        sessionStorage.removeItem('sessionId');
-        sessionStorage.removeItem('sessionPw');
-      })
-      .finally(() => {
-        setIsLoading(false);
+    try {
+      const response = await fetch('http://localhost:3000/api/inquiry/admin', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setItems(data);
+        setIsLoggedIn(true);
+      } else {
+        throw new Error('Received data is not an array');
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setLoginError('Failed to fetch data. Please log in again.');
+      handleLogout();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     setItems([]);
-    // 로그아웃 시 세션 정보 삭제
-    sessionStorage.removeItem('sessionId');
-    sessionStorage.removeItem('sessionPw');
+    localStorage.removeItem('accessToken');
   };
 
+  if (isLoading) return <div>Loading...</div>;
+
   if (!isLoggedIn) {
-    return <LoginModal onLogin={fetchData} error={loginError} />;
+    return <LoginModal onLogin={login} error={loginError} />;
   }
 
-  if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
   return (
