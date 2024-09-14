@@ -10,13 +10,14 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "react-scripts": "5.0.1",
+    "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "PORT=3002 react-scripts start",
-    "build": "PORT=3002 react-scripts build",
-    "test": "PORT=3002 react-scripts test",
-    "eject": "PORT=3002 react-scripts eject"
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": [
@@ -39,7 +40,6 @@
   "devDependencies": {
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@types/react-router-dom": "^5.3.3",
-    "typescript": "^5.6.2"
+    "@types/react-router-dom": "^5.3.3"
   }
 }
